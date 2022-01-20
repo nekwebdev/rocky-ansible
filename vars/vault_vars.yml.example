@@ -1,0 +1,36 @@
+---
+# vars for admin
+admin_username: "admin"
+admin_password: "adminPassword"
+admin_password_salt: "salt"
+admin_sshpub: "ssh-ed25519 Wjndhu7uJYjkndnkskhjsd&*jsadk78&^hbjsd"
+
+# vars for fail2ban
+fail2ban_bantime: 1h
+fail2ban_findtime: 1h
+fail2ban_maxretry: 5
+fail2ban_sshd_bantime: 1d
+fail2ban_sshd_maxretry: 3
+
+# vars for git
+git_username: "git"
+git_password: "gitPassword"
+git_password_salt: "salt"
+git_sshpub: "ssh-ed25519 Wjndhu7uJYjkndnkskhjsd&*jsadk78&^hbjsd"
+git_root: "/repository_folder"
+git_repositories:
+  - repository1_name.git
+  - repository2_name.git
+  - repository3_name.git
+
+# vars for hostname
+host_hostname: "domain.ltd"
+host_timezone: "Pacific/Tahiti"
+host_locale: "en_US.UTF8"
+host_language: "en_US.UTF8"
+
+# vars for nginx
+nginx_hostname: "domain.ltd"
+nginx_user: "admin"
+nginx_linode_apitoken: "ha73hasdj83j98j4j923h29hjkedhhw99872hnjku23bkj3b2uk"
+nginx_certbot_email: "hostmaster@domain.ltd"

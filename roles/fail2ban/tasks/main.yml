@@ -1,0 +1,31 @@
+---
+# tasks file for fail2ban
+- name: Install fail2ban
+  dnf:
+    name:
+      - epel-release
+      - fail2ban
+      - fail2ban-firewalld
+    state: latest
+
+- name: Create the /etc/fail2ban/jail.local configuration
+  template:
+    src: jail.local.j2
+    dest: /etc/fail2ban/jail.local
+
+- name: Activate firewalld jails
+  command:
+    cmd: mv /etc/fail2ban/jail.d/00-firewalld.conf /etc/fail2ban/jail.d/00-firewalld.local
+    creates: /etc/fail2ban/jail.d/00-firewalld.local
+
+- name: Create the /etc/fail2ban/jail.d/sshd.local configuration
+  template:
+    src: sshd.local.j2
+    dest: /etc/fail2ban/jail.d/sshd.local
+  notify: Reload fail2ban
+    
+- name: Ensure fail2ban service is started and enabled on boot
+  service:
+    name: fail2ban
+    state: started
+    enabled: true

@@ -1,0 +1,28 @@
+---
+# tasks file for firewalld
+- name: Install firewalld
+  dnf:
+    name:
+      - firewalld
+    state: latest
+
+- name: Ensure firewalld AllowZoneDrifting is set to no
+  lineinfile:
+    path: /etc/firewalld/firewalld.conf
+    regexp: '^AllowZoneDrifting='
+    line: AllowZoneDrifting=no
+  notify: Reload firewalld
+    
+- name: Ensure firewalld service is started and enabled on boot
+  service:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: Open firewalld SSH port
+  firewalld:
+    zone: public
+    permanent: yes
+    immediate: yes
+    service: ssh
+    state: enabled

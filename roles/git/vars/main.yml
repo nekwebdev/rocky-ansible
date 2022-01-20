@@ -1,0 +1,11 @@
+---
+# vars file for git
+git_username: "git"
+git_password: "git"
+git_password_salt: "salt"
+git_sshpub: "ssh-ed25519 gFtal5ygVwCw6epC"
+git_root: "/repositories"
+git_repositories:
+  - repo1.git
+  - repo2.git
+  

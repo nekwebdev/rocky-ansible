@@ -1,0 +1,45 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  vars:
+    admin_username: "admin"
+    admin_password: "admin"
+    admin_sshpub: "ssh-ed25519 BBBBC3NzaC1lZDI1NYH5BBBBIKMq+5ynzPLeh3dHfBiU4nJhgDC+gFtal5ygVwCw6epC"
+
+  tasks:
+  - name: Get '{{ admin_username }}' user passwd data
+    getent:
+      database: passwd
+      key: "{{ admin_username }}"
+
+  - name: Get '{{ admin_username }}' authorized_keys
+    command:
+      cmd: cat /home/{{ admin_username }}/.ssh/authorized_keys
+    register: authorized_keys
+  
+  - name: Get ssh folder permissions
+    stat:
+      path: /home/{{ admin_username }}/.ssh
+    register: ssh_perms
+  
+  - name: Get authorized_keys permissions
+    stat:
+      path: /home/{{ admin_username }}/.ssh/authorized_keys
+    register: auth_perms
+
+  - name: Test '{{ admin_username }}' user exists
+    assert:
+      that:
+        - ansible_facts.getent_passwd[admin_username] is defined
+  
+  - name: Test authorized_keys are correct
+    assert:
+      that:
+        - authorized_keys.stdout == "{{ admin_sshpub }}"
+
+  - name: Test authorized_keys and .ssh folder permissions are correct
+    assert:
+      that:
+        - ssh_perms.stat.mode == "0700"
+        - auth_perms.stat.mode == "0600"

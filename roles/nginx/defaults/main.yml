@@ -1,0 +1,3 @@
+---
+# defaults file for nginx
+nginx_linode_version: 4

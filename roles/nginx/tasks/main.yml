@@ -1,0 +1,261 @@
+---
+# tasks file for nginx
+######### nginx #########################################################
+- name: Install dnf-utils
+  dnf:
+    name:
+      - dnf-utils
+    state: latest
+
+- name: Ensure nginx.repo is present
+  copy:
+    src: nginx.repo
+    dest: /etc/yum.repos.d/nginx.repo
+
+- name: Install nginx
+  dnf:
+    name: nginx
+    enablerepo: nginx-mainline
+    state: latest
+
+- name: Open firewalld HTTP and HTTPS ports
+  firewalld:
+    zone: public
+    permanent: yes
+    immediate: yes
+    service: "{{ item }}"
+    state: enabled
+  with_items:
+    - http
+    - https
+
+- name: Ensure default.conf is disabled
+  command:
+    cmd: mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.disabled
+    creates: /etc/nginx/conf.d/default.conf.disabled
+  notify: Reload nginx
+
+- name: Ensure '{{ nginx_hostname }}' is configured
+  block:
+    - name: Ensure '{{ nginx_hostname }}' files directory exists
+      file: 
+        path: "/var/www/{{ nginx_hostname }}/html"
+        state: directory
+        owner: "{{ nginx_user }}"
+        group: nginx
+
+    - name: Ensure '{{ nginx_hostname }}' default html files are present
+      template:
+        src: "{{ item }}.j2"
+        dest: "/var/www/{{ nginx_hostname }}/html/{{ item }}"
+        owner: "{{ nginx_user }}"
+        group: nginx
+      with_items:
+        - 50x.html
+        - 404.html
+        - index.html
+
+    - name: Ensure '{{ nginx_hostname }}' nginx configurations are present
+      template:
+        src: "{{ item.src }}"
+        dest: "/etc/nginx/conf.d/{{ item.dest }}"
+      with_items:
+        - { src: host.conf.j2, dest: "{{ nginx_hostname }}.conf" }
+        - { src: reverse_proxy.conf.j2, dest: reverse_proxy.conf.example }
+  notify: Reload nginx
+
+######### certbot #######################################################
+- name: Install certbot with dns-linode challenge
+  dnf:
+    name: python3-certbot-dns-linode
+    state: latest
+  tags: notest
+
+- name: Ensure linode.ini with api key is present
+  template:
+    src: "linode.ini.j2"
+    dest: /etc/leysencrypt/linode.ini
+  tags: notest
+
+- name: Ensure certbot certificates have been generated for '{{ nginx_hostname }}'
+  command:
+    cmd: |
+      certbot certonly
+      --keep
+      --dns-linode
+      --dns-linode-credentials /etc/leysencrypt/linode.ini
+      --agree-tos
+      --redirect
+      --hsts
+      --uir
+      --staple-ocsp
+      --email {{ nginx_certbot_email }}
+      --no-eff-mail
+      --quiet
+      -d {{ nginx_hostname }}
+    # -d {{ nginx_hostname }} -d www.{{ nginx_hostname }}
+    creates: /etc/letsencrypt/live/{{ nginx_hostname }}
+  tags: notest
+
+- name: Create cronjob to renew the certificates
+  cron:
+    name: "Renew certbot certificates"
+    minute: "1"
+    hour: "12"
+    user: root
+    job: "certbot renew > /dev/null 2>&1"
+  tags: notest
+
+######### ModSecurity ###################################################
+- name: Install ModSecurity build dependencies
+  dnf:
+    name:
+      - gcc-c++
+      - flex
+      - bison
+      - yajl
+      - curl-devel
+      - zlib-devel
+      - pcre-devel
+      - autoconf
+      - automake
+      - git
+      - curl
+      - make
+      - libxml2-devel
+      - pkgconfig
+      - libtool
+      - httpd-devel
+      - redhat-rpm-config
+      - wget
+      - openssl
+      - openssl-devel
+    state: latest
+
+- name: Install ModSecurity build dependencies from powertools
+  dnf:
+    name:
+      - doxygen
+      - yajl-devel
+    enablerepo: powertools
+    state: latest
+
+- name: Install the remi repository
+  dnf:
+    name: https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+    state: present
+    disable_gpg_check: yes
+
+- name: Install ModSecurity build dependencies from remi
+  dnf:
+    name: GeoIP-devel
+    enablerepo: remi
+    state: latest
+
+- name: Get nginx version
+  shell:
+    cmd: "nginx -v 2>&1 | sed -e 's|nginx version: nginx/||g'"
+  register: nginx_version
+  changed_when: no
+
+- name: Ensure nginx source directory exists
+  file:
+    path: /usr/local/src/nginx
+    state: directory
+
+- name: Download nginx source code
+  get_url:
+    url: "http://nginx.org/download/nginx-{{ nginx_version.stdout }}.tar.gz"
+    dest: "/usr/local/src/nginx/nginx-{{ nginx_version.stdout }}.tar.gz"
+
+- name: Unpack nginx source code
+  unarchive:
+    src: "/usr/local/src/nginx/nginx-{{ nginx_version.stdout }}.tar.gz"
+    dest: /usr/local/src/nginx/.
+    remote_src: yes
+
+- name: Clone ModSecurity source code
+  git:
+    repo: https://github.com/SpiderLabs/ModSecurity
+    dest: /usr/local/src/ModSecurity/
+    version: "v3/master"
+    single_branch: yes
+    depth: 1
+    recursive: yes
+    force: yes
+  changed_when: no
+
+- name: Build ModSecurity
+  shell:
+    cmd: |
+      git submodule init
+      git submodule update
+      ./build.sh
+      ./configure
+      make
+      make install
+    chdir: /usr/local/src/ModSecurity/
+  changed_when: no
+
+- name: Clone ModSecurity-nginx source code
+  git:
+    repo: https://github.com/SpiderLabs/ModSecurity-nginx.git
+    dest: /usr/local/src/ModSecurity-nginx/
+    depth: 1
+
+- name: Build ModSecurity-nginx module
+  shell:
+    cmd: |
+      ./configure --with-compat --without-pcre2 --add-dynamic-module=/usr/local/src/ModSecurity-nginx
+      make modules
+      cp objs/ngx_http_modsecurity_module.so /etc/nginx/modules/
+    chdir: /usr/local/src/nginx/nginx-{{ nginx_version.stdout }}
+  changed_when: no
+
+- name: Clone ModSecurity core ruleset 3.3
+  get_url:
+    url: "https://github.com/coreruleset/coreruleset/archive/refs/heads/v3.3/master.zip"
+    dest: /tmp/core-master-3.3.zip
+
+- name: Ensure /etc/nginx/modsec directory exists
+  file:
+    path: /etc/nginx/modsec
+    state: directory
+
+- name: Unpack core ruleset 3.3
+  unarchive:
+    src: /tmp/core-master-3.3.zip
+    dest: /etc/nginx/modsec
+    remote_src: yes
+
+- name: Create core ruleset crs-setup.conf
+  command:
+    cmd: cp /etc/nginx/modsec/coreruleset-3.3-master/crs-setup.conf.example /etc/nginx/modsec/coreruleset-3.3-master/crs-setup.conf
+    creates: /etc/nginx/modsec/coreruleset-3.3-master/crs-setup.conf
+
+- name: Ensure modsec logs are rotated
+  copy:
+    src: modsec
+    dest: /etc/logrotate.d/modsec
+
+- name: Ensure nginx configuration is present
+  copy:
+    src: nginx.conf
+    dest: /etc/nginx/nginx.conf
+
+- name: Ensure modsecurity nginx configurations are present
+  copy:
+    src: "{{ item.src }}"
+    dest: "/etc/nginx/modsec/{{ item.dest }}"
+  with_items:
+    - { src: modsecurity.conf, dest: modsecurity.conf }
+    - { src: modsec-config.conf, dest: modsec-config.conf }
+  notify:
+    - Restart nginx
+
+- name: Ensure nginx service is started and enabled on boot
+  service:
+    name: nginx
+    state: started
+    enabled: true
+  tags: notest

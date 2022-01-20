@@ -1,0 +1,53 @@
+---
+# tasks file for git
+- name: Install git
+  dnf:
+    name:
+      - git
+    state: latest
+
+- name: Ensure git-shell is in the /etc/shells
+  lineinfile:
+    path: /etc/shells
+    line: /usr/bin/git-shell
+    state: present
+
+- name: Create '{{ git_username }}' user
+  user:
+    name: "{{ git_username }}"
+    password: "{{ git_password | password_hash('sha512', git_password_salt) }}"
+    shell: /usr/bin/git-shell
+
+- name: Ensure '{{ git_username }}' ssh folder exists
+  file:
+    path: "/home/{{ git_username }}/.ssh"
+    state: directory
+    owner: "{{ git_username }}"
+    group: "{{ git_username }}"
+
+- name: Ensure '{{ git_username }}' ssh public key is in authorized_keys
+  lineinfile:
+    path: "/home/{{ git_username }}/.ssh/authorized_keys"
+    line: "{{ git_sshpub }}"
+    state: present
+    owner: "{{ git_username }}"
+    group: "{{ git_username }}"
+    mode: 0600
+    create: yes
+
+- name: Ensure repositories root folder exists
+  file:
+    path: "{{ git_root }}"
+    state: directory
+    owner: "{{ git_username }}"
+    group: "{{ git_username }}"
+
+- name: Ensure repositories are present
+  shell: |
+    mkdir {{ git_root }}/{{ item }}
+    cd {{ git_root }}/{{ item }}
+    git init --bare
+  args:
+    creates: "{{ git_root }}/{{ item }}"
+  with_items: "{{ git_repositories }}"
+  become_user: "{{ git_username }}"

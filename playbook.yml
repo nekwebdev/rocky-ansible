@@ -1,0 +1,15 @@
+---
+- name: "Setup rocky linux server with nginx, modsecurity, ssl certificates, admin and git users"
+
+  hosts: main
+
+  vars_files:
+    - vault_vars.yml
+
+  roles:
+    - admin
+    - hostname
+    - fail2ban
+    - firewalld
+    - git
+    - nginx

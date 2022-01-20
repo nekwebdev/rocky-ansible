@@ -1,0 +1,37 @@
+---
+# tasks file for hostname
+- name: Ensure hostname is set to '{{ host_hostname }}'
+  hostname:
+    name: "{{ host_hostname }}"
+    use: systemd
+
+- name: Ensure timezone is set to '{{ host_timezone }}'
+  timezone:
+    name: "{{ host_timezone }}"
+
+- name: Ensure localisation files for '{{ host_locale }}' are available
+  locale_gen:
+    name: "{{ host_locale }}"
+    state: present
+
+- name: Ensure localisation files for '{{ host_language }}' are available
+  locale_gen:
+    name: "{{ host_language }}"
+    state: present
+
+- name: Get current locale and language configuration
+  command: localectl status
+  register: locale_status
+  changed_when: false
+
+- name: Parse 'LANG' from current locale and language configuration
+  set_fact:
+    locale_lang: "{{ locale_status.stdout | regex_search('LANG=([^\n]+)', '\\1') | first }}"
+
+- name: Parse 'LANGUAGE' from current locale and language configuration
+  set_fact:
+    locale_language: "{{ locale_status.stdout | regex_search('LANGUAGE=([^\n]+)', '\\1') | default([locale_lang], true) | first }}"
+
+- name: Configure locale to '{{ host_locale }}' and language to '{{ host_language }}'
+  command: localectl set-locale LANG={{ host_locale }} LANGUAGE={{ host_language }}
+  changed_when: locale_lang != host_locale or locale_language != host_language

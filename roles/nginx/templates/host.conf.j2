@@ -1,0 +1,43 @@
+# {{ ansible_managed }}
+# redirect www to no-www
+server {
+    server_name www.{{ nginx_hostname }};
+    return  301 $scheme://{{ nginx_hostname }}$request_uri;
+}
+# main configuration
+server {
+    listen         80;
+    listen         [::]:80;
+    server_name    {{ nginx_hostname }};
+    server_tokens  off;
+
+    listen 443 ssl; #certbot
+
+    access_log  /var/log/nginx/{{ nginx_hostname }}.access.log  main;
+
+    location / {
+        root   /var/www/{{ nginx_hostname }}/html;
+        index  index.html index.htm;
+    }
+
+    # 404 error page
+    error_page  404              /404.html;
+
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /var/www/{{ nginx_hostname }}/html;
+    }
+
+    # RSA certificate
+    ssl_certificate /etc/letsencrypt/live/{{ nginx_hostname }}/fullchain.pem; # certbot
+    ssl_certificate_key /etc/letsencrypt/live/{{ nginx_hostname }}/privkey.pem; # certbot
+
+    include /etc/letsencrypt/options-ssl-nginx.conf; # certbot
+
+    # Redirect non-https traffic to https
+    if ($scheme != "https") {
+        return 301 https://$host$request_uri;
+    } # certbot
+}

@@ -1,0 +1,46 @@
+---
+# tasks file for admin
+- name: Update and upgrade system
+  dnf:
+    name: "*"
+    state: latest
+  tags: notest
+
+- name: Create '{{ admin_username }}' user
+  user:
+    name: "{{ admin_username }}"
+    password: "{{ admin_password | password_hash('sha512', admin_password_salt) }}"
+    shell: /bin/bash
+    groups: wheel
+    append: yes
+
+# - name: Ensure wheel group is uncommented in sudoers
+#   lineinfile:
+#     path: /etc/sudoers.d/sudoers
+#     regexp: '^%wheel  ALL=(ALL)'
+#     line: "%wheel  ALL=(ALL)       ALL"
+
+- name: Ensure '{{ admin_username }}' ssh folder exists
+  file:
+    path: "/home/{{ admin_username }}/.ssh"
+    state: directory
+    owner: "{{ admin_username }}"
+    group: "{{ admin_username }}"
+    mode: 0700
+
+- name: Ensure '{{ admin_username }}' ssh public key is in authorized_keys
+  lineinfile:
+    path: "/home/{{ admin_username }}/.ssh/authorized_keys"
+    line: "{{ admin_sshpub }}"
+    state: present
+    owner: "{{ admin_username }}"
+    group: "{{ admin_username }}"
+    mode: 0600
+    create: yes
+
+- name: Install admin packages
+  dnf:
+    name:
+      - bash-completion
+    state: latest
+  tags: notest

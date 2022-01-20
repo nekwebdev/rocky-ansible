@@ -1,0 +1,6 @@
+---
+# vars file for admin
+admin_username: "admin"
+admin_password: "admin"
+admin_password_salt: "salt"
+admin_sshpub: "ssh-ed25519 BBBBC3NzaC1lZDI1NYH5BBBBIKMq+5ynzPLeh3dHfBiU4nJhgDC+gFtal5ygVwCw6epC"

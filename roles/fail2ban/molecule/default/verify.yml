@@ -1,0 +1,79 @@
+---
+# This is an example playbook to execute Ansible tests.
+
+- name: Verify
+  hosts: all
+  gather_facts: false
+  vars:
+    fail2ban_bantime: 1h
+    fail2ban_findtime: 1h
+    fail2ban_maxretry: 5
+    fail2ban_sshd_bantime: 1d
+    fail2ban_sshd_maxretry: 3
+  tasks:
+  - name: "Get fail2ban package status"
+    package:
+      name: "fail2ban"
+      state: "installed"
+    check_mode: yes
+    register: fail2ban_status
+
+  - name: "Get fail2ban-firewalld package status"
+    package:
+      name: "fail2ban-firewalld"
+      state: "installed"
+    check_mode: yes
+    register: fail2banfirewalld_status
+
+  - name: Get jail.local status
+    stat:
+      path: /etc/fail2ban/jail.local
+    register: jail_local
+
+  - name: Get 00-firewalld.local status
+    stat:
+      path: /etc/fail2ban/jail.d/00-firewalld.local
+    register: firewalld_local
+
+  - name: Get sshd.local status
+    stat:
+      path: /etc/fail2ban/jail.d/sshd.local
+    register: sshd_local
+
+  - name: Get fail2ban service status
+    service:
+      name: fail2ban
+      state: started
+      enabled: true
+    check_mode: yes
+    register: fail2ban_service
+
+# tests
+  - name: Test fail2ban and fail2ban-firewalld are installed
+    assert:
+      that:
+        - not fail2ban_status.changed
+        - not fail2banfirewalld_status.changed
+
+  - name: Test jail.local is present
+    assert:
+      that:
+        - jail_local.stat.exists
+        - jail_local.stat.isreg
+
+  - name: Test 00-firewalld.local is present
+    assert:
+      that:
+        - firewalld_local.stat.exists
+        - firewalld_local.stat.isreg
+
+  - name: Test sshd.local is present
+    assert:
+      that:
+        - sshd_local.stat.exists
+        - sshd_local.stat.isreg
+
+  - name: Test fail2ban service is enabled and running
+    assert:
+      that:
+        - not fail2ban_service.changed

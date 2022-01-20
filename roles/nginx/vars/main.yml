@@ -1,0 +1,6 @@
+---
+# vars file for nginx
+nginx_hostname: "domain.ltd"
+nginx_user: "admin"
+nginx_linode_apitoken: "dhjifdhafiowehfiweUIhhbIHADBilYU"
+nginx_certbot_email: "hostmaster@domain.ltd"

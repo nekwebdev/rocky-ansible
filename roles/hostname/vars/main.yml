@@ -1,0 +1,6 @@
+---
+# vars file for hostname
+host_hostname: "domain.ltd"
+host_timezone: "Pacific/Tahiti"
+host_locale: "en_US.UTF8"
+host_language: "en_US.UTF8"

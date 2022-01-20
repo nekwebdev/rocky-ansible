@@ -1,0 +1,32 @@
+server {
+    listen         80;
+    listen         [::]:80;
+    server_name    sub.domain.ltd;
+    server_tokens  off;
+
+    listen 443 ssl; #certbot
+    
+    access_log  /var/log/nginx/sub.domain.ltd.access.log  main;
+
+    location / {
+        proxy_set_header        Host $host;
+        proxy_set_header        X-Real-IP $remote_addr;
+        proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header        X-Forwarded-Proto $scheme;
+        proxy_pass              http://localhost:XXXX;
+        proxy_read_timeout      90;
+
+        proxy_redirect          http://localhost:XXXX https://sub.domain.ltd;
+    }
+
+    # RSA certificate
+    ssl_certificate /etc/letsencrypt/live/{{ nginx_hostname }}/fullchain.pem; # certbot
+    ssl_certificate_key /etc/letsencrypt/live/{{ nginx_hostname }}/privkey.pem; # certbot
+
+    include /etc/letsencrypt/options-ssl-nginx.conf; # certbot
+
+    # Redirect non-https traffic to https
+    if ($scheme != "https") {
+        return 301 https://$host$request_uri;
+    } # certbot
+}

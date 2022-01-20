@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+[sshd]
+enabled = true
+
+# Override the default global configuration
+# for specific jail sshd
+bantime = {{ fail2ban_sshd_bantime }}
+maxretry = {{ fail2ban_sshd_maxretry }}
